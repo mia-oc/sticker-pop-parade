@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#FF6B6B">
+  <title>Sticker Pop Parade</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+      font-family: 'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #FFF;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      pointer-events: auto;
+    }
+    .sticker-count {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 20px;
+      background: #FFD93D;
+      padding: 8px 16px;
+      border-radius: 20px;
+      color: #333;
+      pointer-events: auto;
+    }
+    .settings-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 50px;
+      height: 50px;
+      background: #FFF;
+      border: 3px solid #333;
+      border-radius: 50%;
+      font-size: 24px;
+      cursor: pointer;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .settings-btn.hidden { display: none; }
+    .modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #FFF;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      pointer-events: auto;
+      display: none;
+      min-width: 280px;
+      max-width: 90vw;
+    }
+    .modal.active { display: block; }
+    .modal h2 {
+      margin-bottom: 20px;
+      color: #333;
+      text-align: center;
+    }
+    .modal button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .modal button:active { transform: scale(0.95); }
+    .btn-mute { background: #6BCB77; color: white; }
+    .btn-mute.muted { background: #FF6B6B; }
+    .btn-lock { background: #4D96FF; color: white; }
+    .btn-gallery { background: #FFD93D; color: #333; }
+    .btn-close { background: #ccc; }
+    .sticker-gallery {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.95);
+      pointer-events: auto;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .sticker-gallery.active { display: block; }
+    .sticker-gallery h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .sticker-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .sticker-slot {
+      aspect-ratio: 1;
+      background: #F0F0F0;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      border: 3px dashed #CCC;
+    }
+    .sticker-slot.unlocked {
+      background: #FFF9C4;
+      border: 3px solid #FFD93D;
+    }
+    .back-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 15px 40px;
+      background: #FF6B6B;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .exit-gate {
+      display: none;
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: auto;
+    }
+    .exit-gate.active { display: block; }
+    .exit-btn {
+      padding: 20px 40px;
+      background: #FF6B6B;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 18px;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+    .exit-btn.holding { opacity: 1; background: #FF4444; }
+    .lock-hint {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+    .lock-hint.active { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div id="ui">
+    <div class="score">Score: <span id="scoreVal">0</span></div>
+    <div class="sticker-count">⭐ <span id="stickerVal">0</span></div>
+    <button class="settings-btn" id="settingsBtn">⚙️</button>
+    
+    <div class="exit-gate" id="exitGate">
+      <div class="lock-hint" id="lockHint">
+        Hold 3 seconds + use two fingers to exit<br>
+        <small>For real lock: Android Screen Pinning / iOS Guided Access</small>
+      </div>
+      <button class="exit-btn" id="exitBtn">Exit Game</button>
+    </div>
+  </div>
+  
+  <div class="modal" id="settingsModal">
+    <h2>Settings</h2>
+    <button class="btn-mute" id="muteBtn">🔊 Sound On</button>
+    <button class="btn-lock" id="lockBtn">🔒 Adult Lock Mode</button>
+    <button class="btn-gallery" id="galleryBtn">🎨 Sticker Gallery</button>
+    <button class="btn-close" id="closeBtn">Close</button>
+  </div>
+  
+  <div class="sticker-gallery" id="stickerGallery">
+    <h2>My Stickers! 🎉</h2>
+    <div class="sticker-grid" id="stickerGrid"></div>
+    <button class="back-btn" id="backBtn">Back to Game</button>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/game/service-worker.js');
+    }
+  </script>
+</body>
+</html>
