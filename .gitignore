@@ -1,0 +1,5 @@
+
+# Local and generated files
+node_modules/
+dist/
+.DS_Store
